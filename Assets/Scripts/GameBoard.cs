@@ -5,6 +5,7 @@ using System.IO.Compression;
 using Unity.Mathematics;
 using UnityEngine;
 using UnityEngine.Tilemaps;
+using TMPro;
 
 public class GameBoard : MonoBehaviour
 {
@@ -17,10 +18,13 @@ public class GameBoard : MonoBehaviour
 
     [SerializeField] private float updateInterval = 0.05f;
 
+    [SerializeField] TextMeshProUGUI pauseButtonText;
+
     private HashSet<Vector3Int> aliveCells;
     private HashSet<Vector3Int> cellsToCheck;
 
     public bool isPaused = true;
+    public bool isClickingPauseButton = false;
 
     void Awake()
     {
@@ -48,16 +52,22 @@ public class GameBoard : MonoBehaviour
         }
     }
 
-    private void Clear()
+    public void Clear()
     {
+        isPaused = true;
+        pauseButtonText.text = "Unpause";
         currentState.ClearAllTiles();
         nextState.ClearAllTiles();
         aliveCells.Clear();
         cellsToCheck.Clear();
-
     }
 
     void OnEnable()
+    {
+        StartCoroutine(Simulate());
+    }
+
+    public void StartSimulation()
     {
         StartCoroutine(Simulate());
     }
@@ -74,6 +84,11 @@ public class GameBoard : MonoBehaviour
         }
     }
 
+    public void StartOneStepForward()
+    {
+        StartCoroutine(OneStepForward());
+    }
+
     private IEnumerator OneStepForward()
     {
         UpdateState();
@@ -82,13 +97,32 @@ public class GameBoard : MonoBehaviour
 
     void Update()
     {
-        if (Input.GetKeyDown(KeyCode.Space))
+        if (Input.GetKeyDown(KeyCode.Q))
+        {
+            Application.Quit();
+        }
+        else if (Input.GetKeyDown(KeyCode.C))
+        {
+            Clear();
+        }
+        else if (Input.GetKeyDown(KeyCode.Space))
         {
             isPaused = !isPaused;
 
+            if (aliveCells.Count == 0)
+            {
+                isPaused = true;
+            }
+
+
             if (!isPaused)
             {
+                pauseButtonText.text = "Pause";
                 StartCoroutine(Simulate());
+            }
+            else
+            {
+                pauseButtonText.text = "Unpause";
             }
         }
         else if (isPaused && Input.GetKeyDown(KeyCode.RightArrow))
@@ -101,10 +135,11 @@ public class GameBoard : MonoBehaviour
             if (isPaused)
             {
                 Vector2 mousePoint = Camera.main.ScreenToWorldPoint(Input.mousePosition);
-                Debug.Log(mousePoint);
 
                 int x = (int)Math.Floor(mousePoint.x); //Mathf.RoundToInt(mousePoint.x);
                 int y = (int)Math.Floor(mousePoint.y); //Mathf.RoundToInt(mousePoint.y);
+
+                // check to see pause/unpause button
 
                 currentState.SetTile(new Vector3Int(x, y, 0), aliveTile);
                 aliveCells.Add(new Vector3Int(x, y, 0));
@@ -116,7 +151,6 @@ public class GameBoard : MonoBehaviour
             if (isPaused)
             {
                 Vector2 mousePoint = Camera.main.ScreenToWorldPoint(Input.mousePosition);
-                Debug.Log(mousePoint);
 
                 int x = (int)Math.Floor(mousePoint.x); //Mathf.RoundToInt(mousePoint.x);
                 int y = (int)Math.Floor(mousePoint.y); //Mathf.RoundToInt(mousePoint.y);
@@ -133,50 +167,55 @@ public class GameBoard : MonoBehaviour
     private void UpdateState()
     {
         cellsToCheck.Clear();
-
-        foreach (Vector3Int cell in aliveCells)
+        if (aliveCells.Count == 0)
         {
-            for (int x = -1; x <= 1; x++)
+            Clear();
+        }
+        else
+        {
+            foreach (Vector3Int cell in aliveCells)
             {
-                for (int y = -1; y <= 1; y++)
+                for (int x = -1; x <= 1; x++)
                 {
-                    if (!cellsToCheck.Contains(cell + new Vector3Int(x, y, 0)))
+                    for (int y = -1; y <= 1; y++)
                     {
-                        cellsToCheck.Add(cell + new Vector3Int(x, y, 0));
+                        if (!cellsToCheck.Contains(cell + new Vector3Int(x, y, 0)))
+                        {
+                            cellsToCheck.Add(cell + new Vector3Int(x, y, 0));
+                        }
                     }
                 }
             }
+
+            foreach (Vector3Int cell in cellsToCheck)
+            {
+                int neighbors = CountNeighbors(cell);
+                bool alive = IsAlive(cell);
+
+                if (!alive && neighbors == 3)
+                {
+                    // becomes alive
+                    nextState.SetTile(cell, aliveTile);
+                    aliveCells.Add(cell);
+                }
+                else if (alive && (neighbors < 2 || neighbors > 3))
+                {
+                    // dies
+                    nextState.SetTile(cell, deadTile);
+                    aliveCells.Remove(cell);
+                }
+                else
+                {
+                    // Stays the same
+                    nextState.SetTile(cell, currentState.GetTile(cell));
+                }
+            }
+
+            Tilemap temp = currentState;
+            currentState = nextState;
+            nextState = temp;
+            nextState.ClearAllTiles();
         }
-
-        foreach (Vector3Int cell in cellsToCheck)
-        {
-            int neighbors = CountNeighbors(cell);
-            bool alive = IsAlive(cell);
-
-            if (!alive && neighbors == 3)
-            {
-                // becomes alive
-                nextState.SetTile(cell, aliveTile);
-                aliveCells.Add(cell);
-            }
-            else if (alive && (neighbors < 2 || neighbors > 3))
-            {
-                // dies
-                nextState.SetTile(cell, deadTile);
-                aliveCells.Remove(cell);
-            }
-            else
-            {
-                // Stays the same
-                nextState.SetTile(cell, currentState.GetTile(cell));
-            }
-        }
-
-        Tilemap temp = currentState;
-        currentState = nextState;
-        nextState = temp;
-        nextState.ClearAllTiles();
-
     }
 
     private int CountNeighbors(Vector3Int cell)
@@ -206,6 +245,26 @@ public class GameBoard : MonoBehaviour
     private bool IsAlive(Vector3Int cell)
     {
         return currentState.GetTile(cell) == aliveTile;
+    }
+
+    public bool HaveNoAliveCells()
+    {
+        if (aliveCells.Count == 0)
+        {
+            return true;
+        }
+
+        return false;
+    }
+
+    public bool HaveOneAliveCell()
+    {
+        if (aliveCells.Count == 1)
+        {
+            return true;
+        }
+
+        return false;
     }
 }
 
