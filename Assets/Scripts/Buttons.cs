@@ -8,6 +8,7 @@ public class Buttons : MonoBehaviour
 {
     [SerializeField] GameBoard gameBoard;
     [SerializeField] TextMeshProUGUI pauseButtonText;
+
     public void QuitGame()
     {
         Application.Quit();
