@@ -1,6 +1,8 @@
+using System;
 using System.Collections;
 using System.Collections.Generic;
 using System.IO.Compression;
+using Unity.Mathematics;
 using UnityEngine;
 using UnityEngine.Tilemaps;
 
@@ -18,6 +20,8 @@ public class GameBoard : MonoBehaviour
     private HashSet<Vector3Int> aliveCells;
     private HashSet<Vector3Int> cellsToCheck;
 
+    public bool isPaused = true;
+
     void Awake()
     {
         aliveCells = new HashSet<Vector3Int>();
@@ -27,9 +31,7 @@ public class GameBoard : MonoBehaviour
 
     private void Start()
     {
-        {
-            SetPattern(pattern);
-        }
+        SetPattern(pattern);
     }
 
     private void SetPattern(Pattern pattern)
@@ -65,10 +67,66 @@ public class GameBoard : MonoBehaviour
         var interval = new WaitForSeconds(updateInterval);
         yield return interval;
 
-        while (enabled)
+        while (!isPaused)
         {
             UpdateState();
             yield return interval; // new WaitForSeconds(updateInterval); 
+        }
+    }
+
+    private IEnumerator OneStepForward()
+    {
+        UpdateState();
+        yield return new WaitForSeconds(updateInterval);
+    }
+
+    void Update()
+    {
+        if (Input.GetKeyDown(KeyCode.Space))
+        {
+            isPaused = !isPaused;
+
+            if (!isPaused)
+            {
+                StartCoroutine(Simulate());
+            }
+        }
+        else if (isPaused && Input.GetKeyDown(KeyCode.RightArrow))
+        {
+            StartCoroutine(OneStepForward());
+        }
+
+        if (Input.GetMouseButton(0))
+        {
+            if (isPaused)
+            {
+                Vector2 mousePoint = Camera.main.ScreenToWorldPoint(Input.mousePosition);
+                Debug.Log(mousePoint);
+
+                int x = (int)Math.Floor(mousePoint.x); //Mathf.RoundToInt(mousePoint.x);
+                int y = (int)Math.Floor(mousePoint.y); //Mathf.RoundToInt(mousePoint.y);
+
+                currentState.SetTile(new Vector3Int(x, y, 0), aliveTile);
+                aliveCells.Add(new Vector3Int(x, y, 0));
+
+            }
+        }
+        else if (Input.GetMouseButton(1))
+        {
+            if (isPaused)
+            {
+                Vector2 mousePoint = Camera.main.ScreenToWorldPoint(Input.mousePosition);
+                Debug.Log(mousePoint);
+
+                int x = (int)Math.Floor(mousePoint.x); //Mathf.RoundToInt(mousePoint.x);
+                int y = (int)Math.Floor(mousePoint.y); //Mathf.RoundToInt(mousePoint.y);
+
+                if (IsAlive(new Vector3Int(x, y, 0)))
+                {
+                    currentState.SetTile(new Vector3Int(x, y, 0), deadTile);
+                    aliveCells.Remove(new Vector3Int(x, y, 0));
+                }
+            }
         }
     }
 

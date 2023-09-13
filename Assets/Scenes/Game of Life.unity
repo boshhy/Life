@@ -249,8 +249,9 @@ MonoBehaviour:
   nextState: {fileID: 2016155745}
   aliveTile: {fileID: 11400000, guid: 947edf50ec9c8d24baed6da7ae54385e, type: 2}
   deadTile: {fileID: 11400000, guid: 2eb30e116e1163141a03ad3c8998b23f, type: 2}
-  pattern: {fileID: 11400000, guid: cfe5c1b920bb9c447b2bde277235f00c, type: 2}
+  pattern: {fileID: 11400000, guid: fa1427d7240c0bb47ac2db73fdae8318, type: 2}
   updateInterval: 0.05
+  isPaused: 1
 --- !u!156049354 &592001834
 Grid:
   m_ObjectHideFlags: 0
